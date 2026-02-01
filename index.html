@@ -708,8 +708,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="childBonus">בונוס נוסף (דקות):</label>
-                    <input type="number" id="childBonus" value="0" min="0" placeholder="0">
+                    <label for="childBonus">בונוס נוסף (דקות - יכול להיות שלילי):</label>
+                    <input type="number" id="childBonus" value="0" placeholder="0">
                 </div>
 
                 <button onclick="addChild()">➕ הוסף ילד</button>
@@ -821,6 +821,8 @@
                     <button class="variable-btn" onclick="insertVariable('ruleCondition', '<')"><</button>
                     <button class="variable-btn" onclick="insertVariable('ruleCondition', '>=')">>=</button>
                     <button class="variable-btn" onclick="insertVariable('ruleCondition', '<=')"><=</button>
+                    <button class="variable-btn" onclick="insertVariable('ruleCondition', '(');">(</button>
+                    <button class="variable-btn" onclick="insertVariable('ruleCondition', ')');">)</button>
                     <button class="variable-btn" onclick="insertVariable('ruleCondition', '60')">60 (שניות)</button>
                     <button class="variable-btn" onclick="insertVariable('ruleCondition', '300')">300 (5 דק')</button>
                 </div>
@@ -838,6 +840,10 @@
                     <button class="variable-btn" onclick="insertVariable('ruleAction', ' - ')">-</button>
                     <button class="variable-btn" onclick="insertVariable('ruleAction', ' * ')">*</button>
                     <button class="variable-btn" onclick="insertVariable('ruleAction', ' / ')">/</button>
+                    <button class="variable-btn" onclick="insertVariable('ruleAction', '(');">(</button>
+                    <button class="variable-btn" onclick="insertVariable('ruleAction', ')');">)</button>
+                    <button class="variable-btn" onclick="insertVariable('ruleAction', 'Math.abs')">Math.abs</button>
+                    <button class="variable-btn" onclick="insertVariable('ruleAction', 'Math.floor')">Math.floor</button>
                 </div>
                 <input type="text" id="ruleAction" placeholder="לדוגמה: nextTurn - overtime - 300" style="font-family: monospace;">
             </div>
@@ -875,8 +881,8 @@
             </div>
 
             <div class="form-group">
-                <label for="editChildBonus">בונוס נוסף (דקות):</label>
-                <input type="number" id="editChildBonus" value="0" min="0" placeholder="0">
+                <label for="editChildBonus">בונוס נוסף (דקות - יכול להיות שלילי):</label>
+                <input type="number" id="editChildBonus" value="0" placeholder="0">
             </div>
 
             <div style="margin-top: 20px; display: flex; gap: 10px;">
@@ -1058,7 +1064,12 @@
         ];
 
         // Load from cookies on start
-        loadFromCookies();
+        // Wait for DOM to be ready before loading
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadFromCookies);
+        } else {
+            loadFromCookies();
+        }
 
         // Initialize rules from templates if empty
         if (rules.length === 0) {
@@ -1129,6 +1140,8 @@
             const select = document.getElementById('activityType');
             const childActivitySelect = document.getElementById('childActivity');
             const editChildActivitySelect = document.getElementById('editChildActivity');
+            
+            if (!list || !select) return; // Safety check
             
             list.innerHTML = categories.map((cat, i) => `
                 <div class="list-item">
@@ -1764,7 +1777,7 @@
         function loadFromCookies() {
             try {
                 const data = localStorage.getItem('turnSystem');
-                if (data) {
+                if (data && data.trim()) {
                     const parsed = JSON.parse(data);
                     settings = parsed.settings || settings;
                     categories = parsed.categories || categories;
@@ -1774,6 +1787,8 @@
                 }
             } catch (e) {
                 console.error('Error loading from localStorage:', e);
+                // Clear corrupted data
+                localStorage.removeItem('turnSystem');
             }
             
             loadSettings();
@@ -1782,18 +1797,20 @@
             renderDevices();
         }
 
-        // Initialize
-        renderCategories();
-        renderChildren();
-        renderDevices();
-        
-        // Auto-refresh active devices display every 3 seconds when on timer tab
-        setInterval(() => {
-            const timerTab = document.getElementById('timer');
-            if (timerTab && timerTab.classList.contains('active')) {
-                updateActiveDevicesDisplay();
-            }
-        }, 3000);
+        // Initialize on DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCategories();
+            renderChildren();
+            renderDevices();
+            
+            // Auto-refresh active devices display every 3 seconds when on timer tab
+            setInterval(() => {
+                const timerTab = document.getElementById('timer');
+                if (timerTab && timerTab.classList.contains('active')) {
+                    updateActiveDevicesDisplay();
+                }
+            }, 3000);
+        });
     </script>
 </body>
 </html>
