@@ -700,6 +700,18 @@
                     <input type="number" id="childTime" placeholder="ברירת מחדל">
                 </div>
 
+                <div class="form-group">
+                    <label for="childActivity">פעילות:</label>
+                    <select id="childActivity">
+                        <option value="">לא נבחר</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="childBonus">בונוס נוסף (דקות):</label>
+                    <input type="number" id="childBonus" value="0" min="0" placeholder="0">
+                </div>
+
                 <button onclick="addChild()">➕ הוסף ילד</button>
             </div>
 
@@ -725,22 +737,11 @@
         <!-- Timer Tab -->
         <div class="tab-content" id="timer">
             <div class="card">
-                <h2>בחירת פעילות ובונוסים</h2>
+                <h2>הפעלת תור</h2>
                 
-                <div class="form-group">
-                    <label>בחר ילדים שיש להם שיעורים או בונוסים:</label>
-                    <div id="bonusSelection"></div>
-                </div>
-
-                <div class="form-group">
-                    <label for="bonusTime">זמן בונוס (דקות):</label>
-                    <input type="number" id="bonusTime" value="10" min="0">
-                </div>
-
-                <div class="form-group">
-                    <label for="activityType">סוג פעילות:</label>
-                    <select id="activityType"></select>
-                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    התור יקבע לפי ההגדרות של כל ילד (פעילות ובונוס). ניתן לערבב את הסדר לפני ההתחלה.
+                </p>
 
                 <button onclick="startQueue()" class="btn-success">🚀 התחל תור</button>
                 <button onclick="shuffleQueue()" class="btn-warning shuffle-btn">🔀 ערבב סדר</button>
@@ -838,6 +839,43 @@
             <div style="margin-top: 20px; display: flex; gap: 10px;">
                 <button onclick="saveCustomRule()" class="btn-success">💾 שמור חוק</button>
                 <button onclick="closeCustomRuleModal()" class="btn-secondary">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Child Modal -->
+    <div class="modal" id="editChildModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeEditChildModal()">×</span>
+            <h2 style="color: var(--primary); margin-bottom: 20px;">ערוך ילד</h2>
+
+            <input type="hidden" id="editChildId">
+
+            <div class="form-group">
+                <label for="editChildName">שם הילד:</label>
+                <input type="text" id="editChildName" placeholder="הכנס שם">
+            </div>
+
+            <div class="form-group">
+                <label for="editChildTime">זמן מוקצה (דקות):</label>
+                <input type="number" id="editChildTime" placeholder="ברירת מחדל">
+            </div>
+
+            <div class="form-group">
+                <label for="editChildActivity">פעילות:</label>
+                <select id="editChildActivity">
+                    <option value="">לא נבחר</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="editChildBonus">בונוס נוסף (דקות):</label>
+                <input type="number" id="editChildBonus" value="0" min="0" placeholder="0">
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button onclick="saveEditChild()" class="btn-success">💾 שמור שינויים</button>
+                <button onclick="closeEditChildModal()" class="btn-secondary">ביטול</button>
             </div>
         </div>
     </div>
@@ -976,6 +1014,8 @@
         function renderCategories() {
             const list = document.getElementById('categoriesList');
             const select = document.getElementById('activityType');
+            const childActivitySelect = document.getElementById('childActivity');
+            const editChildActivitySelect = document.getElementById('editChildActivity');
             
             list.innerHTML = categories.map((cat, i) => `
                 <div class="list-item">
@@ -984,9 +1024,17 @@
                 </div>
             `).join('');
 
-            select.innerHTML = categories.map(cat => 
+            const categoryOptions = categories.map(cat => 
                 `<option value="${cat}">${cat}</option>`
             ).join('');
+
+            select.innerHTML = categoryOptions;
+            if (childActivitySelect) {
+                childActivitySelect.innerHTML = '<option value="">לא נבחר</option>' + categoryOptions;
+            }
+            if (editChildActivitySelect) {
+                editChildActivitySelect.innerHTML = '<option value="">לא נבחר</option>' + categoryOptions;
+            }
         }
 
         function addCategory() {
@@ -1150,19 +1198,24 @@
             }
 
             const time = parseInt(document.getElementById('childTime').value) || settings.defaultTime;
+            const activity = document.getElementById('childActivity').value;
+            const bonus = parseInt(document.getElementById('childBonus').value) || 0;
             
             children.push({
                 id: Date.now(),
                 name: name,
                 defaultTime: time,
+                activity: activity,
+                bonus: bonus,
                 totalUsage: 0
             });
 
             document.getElementById('childName').value = '';
             document.getElementById('childTime').value = '';
+            document.getElementById('childActivity').value = '';
+            document.getElementById('childBonus').value = '0';
             
             renderChildren();
-            renderBonusSelection();
             saveToCookies();
         }
 
@@ -1170,9 +1223,41 @@
             if (confirm('האם למחוק את הילד?')) {
                 children = children.filter(c => c.id !== id);
                 renderChildren();
-                renderBonusSelection();
                 saveToCookies();
             }
+        }
+
+        function editChild(id) {
+            const child = children.find(c => c.id === id);
+            if (!child) return;
+
+            document.getElementById('editChildId').value = child.id;
+            document.getElementById('editChildName').value = child.name;
+            document.getElementById('editChildTime').value = child.defaultTime;
+            document.getElementById('editChildActivity').value = child.activity || '';
+            document.getElementById('editChildBonus').value = child.bonus || 0;
+            
+            document.getElementById('editChildModal').classList.add('active');
+        }
+
+        function saveEditChild() {
+            const id = parseInt(document.getElementById('editChildId').value);
+            const child = children.find(c => c.id === id);
+            if (!child) return;
+
+            child.name = document.getElementById('editChildName').value.trim();
+            child.defaultTime = parseInt(document.getElementById('editChildTime').value) || settings.defaultTime;
+            child.activity = document.getElementById('editChildActivity').value;
+            child.bonus = parseInt(document.getElementById('editChildBonus').value) || 0;
+
+            renderChildren();
+            saveToCookies();
+            closeEditChildModal();
+            alert('הילד עודכן בהצלחה! ✅');
+        }
+
+        function closeEditChildModal() {
+            document.getElementById('editChildModal').classList.remove('active');
         }
 
         function renderChildren() {
@@ -1186,11 +1271,17 @@
                 <div class="list-item">
                     <div>
                         <strong>${child.name}</strong>
+                        ${child.activity ? `<span class="category-badge category-${getCategoryClass(child.activity)}">${child.activity}</span>` : ''}
                         <span style="color: var(--text-secondary); margin-right: 10px;">
-                            ${child.defaultTime} דקות | שימוש כולל: ${formatTime(child.totalUsage)}
+                            ${child.defaultTime} דקות
+                            ${child.bonus > 0 ? `+ ${child.bonus} בונוס` : ''}
+                            | שימוש כולל: ${formatTime(child.totalUsage)}
                         </span>
                     </div>
-                    <button class="btn-danger" onclick="deleteChild(${child.id})">🗑️ מחק</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-warning" onclick="editChild(${child.id})" style="padding: 8px 15px; font-size: 0.9rem;">✏️ ערוך</button>
+                        <button class="btn-danger" onclick="deleteChild(${child.id})">🗑️ מחק</button>
+                    </div>
                 </div>
             `).join('');
         }
@@ -1237,16 +1328,6 @@
         }
 
         // Bonus selection
-        function renderBonusSelection() {
-            const container = document.getElementById('bonusSelection');
-            container.innerHTML = children.map(child => `
-                <div class="checkbox-group">
-                    <input type="checkbox" id="bonus-${child.id}" data-child-id="${child.id}">
-                    <label for="bonus-${child.id}">${child.name}</label>
-                </div>
-            `).join('');
-        }
-
         // Queue functions
         function startQueue() {
             if (children.length === 0) {
@@ -1255,16 +1336,11 @@
             }
 
             queue = [...children].map(child => {
-                const bonusCheckbox = document.getElementById(`bonus-${child.id}`);
-                const hasBonus = bonusCheckbox && bonusCheckbox.checked;
-                const bonusTime = hasBonus ? parseInt(document.getElementById('bonusTime').value) || 0 : 0;
-                const activity = document.getElementById('activityType').value;
-
                 return {
                     ...child,
-                    timeAllotted: child.defaultTime + bonusTime,
-                    activity: activity,
-                    hasBonus: hasBonus
+                    timeAllotted: child.defaultTime + (child.bonus || 0),
+                    activity: child.activity || 'לא הוגדר',
+                    hasBonus: child.bonus > 0
                 };
             });
 
@@ -1560,14 +1636,12 @@
             renderCategories();
             renderChildren();
             renderDevices();
-            renderBonusSelection();
         }
 
         // Initialize
         renderCategories();
         renderChildren();
         renderDevices();
-        renderBonusSelection();
     </script>
 </body>
 </html>
