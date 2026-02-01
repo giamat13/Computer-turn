@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת חילוק תורות - ניהול זמן מחשב לילדים</title>
+    <link href="https://fonts.googleapis.com/css2?family=Varela+Round&family=Alef:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6B4CE6;
+            --primary-dark: #5438C7;
+            --secondary: #FF6B9D;
+            --success: #4ECDC4;
+            --warning: #FFD93D;
+            --danger: #FF6B6B;
+            --bg-main: #F8F9FE;
+            --bg-card: #FFFFFF;
+            --text-primary: #2D3748;
+            --text-secondary: #718096;
+            --border: #E2E8F0;
+            --shadow: rgba(107, 76, 230, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --primary: #8B6CE6;
+            --primary-dark: #7458D7;
+            --secondary: #FF8BB9;
+            --success: #6EEDC4;
+            --warning: #FFE93D;
+            --danger: #FF8B8B;
+            --bg-main: #1A202C;
+            --bg-card: #2D3748;
+            --text-primary: #E2E8F0;
+            --text-secondary: #A0AEC0;
+            --border: #4A5568;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="ocean"] {
+            --primary: #0891B2;
+            --primary-dark: #0E7490;
+            --secondary: #06B6D4;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --bg-main: #ECFEFF;
+            --bg-card: #FFFFFF;
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --border: #CBD5E1;
+            --shadow: rgba(8, 145, 178, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Alef', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            padding: 20px;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-family: 'Varela Round', sans-serif;
+            color: white;
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+            animation: slideDown 0.5s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.1rem;
+            font-family: 'Alef', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .tab:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .tab.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px var(--shadow);
+        }
+
+        .card h2 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: 'Alef', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(107, 76, 230, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: 'Alef', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: var(--text-primary);
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--bg-main);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .list-item:hover {
+            background: #E8ECFF;
+            transform: translateX(-5px);
+        }
+
+        .list-item button {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+        }
+
+        .timer-display {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 20px;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .timer-display h2 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            font-family: 'Varela Round', sans-serif;
+            color: white;
+            border: none;
+        }
+
+        .timer-display .time {
+            font-size: 5rem;
+            font-weight: bold;
+            font-family: 'Varela Round', sans-serif;
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--warning));
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .control-buttons button {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px;
+            font-size: 1.1rem;
+        }
+
+        .queue-list {
+            background: var(--bg-main);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-right: 5px solid var(--primary);
+        }
+
+        .queue-item.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-right-color: var(--warning);
+        }
+
+        .queue-item .number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .queue-item.active .number {
+            background: var(--warning);
+            color: var(--text-primary);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-main);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .category-homework {
+            background: var(--success);
+            color: white;
+        }
+
+        .category-coding {
+            background: var(--primary);
+            color: white;
+        }
+
+        .category-gaming {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .category-other {
+            background: var(--warning);
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .timer-display .time {
+                font-size: 3rem;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .control-buttons {
+                flex-direction: column;
+            }
+
+            .control-buttons button {
+                min-width: 100%;
+            }
+        }
+
+        .shuffle-btn {
+            margin-right: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.3; }
+        }
+
+        .close-modal {
+            float: left;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close-modal:hover {
+            color: var(--danger);
+        }
+
+        .rule-item {
+            background: var(--bg-main);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-right: 4px solid var(--primary);
+        }
+
+        .rule-item.disabled {
+            opacity: 0.6;
+            border-right-color: var(--text-secondary);
+        }
+
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .rule-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+
+        .rule-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .rule-formula {
+            background: #2D3748;
+            color: #48BB78;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .rule-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            right: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--success);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(-26px);
+        }
+
+        .formula-builder {
+            background: var(--bg-main);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .formula-builder label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .variable-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 12px;
+            margin: 3px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .variable-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .help-text {
+            background: #FFF5E6;
+            border-right: 4px solid var(--warning);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+
+        .help-text strong {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ מערכת חילוק תורות במחשב</h1>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="setup">⚙️ הגדרות</button>
+            <button class="tab" data-tab="manage">👥 ניהול</button>
+            <button class="tab" data-tab="timer">⏱️ טיימר</button>
+        </div>
+
+        <!-- Setup Tab -->
+        <div class="tab-content active" id="setup">
+            <div class="card">
+                <h2>הגדרות מערכת</h2>
+                
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="priorityMode">
+                        <label for="priorityMode">עדיפות לילדים שעושים שיעורים על פני משחקים</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="defaultTime">זמן ברירת מחדל לכל ילד (דקות):</label>
+                    <input type="number" id="defaultTime" value="30" min="1">
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="allowPause">
+                        <label for="allowPause">אפשר השהיה של הטיימר</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="allowReset">
+                        <label for="allowReset">אפשר איפוס של הטיימר</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showProgress">
+                        <label for="showProgress">הצג קו התקדמות</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showPercent">
+                        <label for="showPercent">הצג אחוזים</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="countDown">
+                        <label for="countDown">ספירה לאחור (במקום קדימה)</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="soundAlerts">
+                        <label for="soundAlerts">התראות קוליות (צפצוף בסיום)</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="visualAlerts">
+                        <label for="visualAlerts">התראות ויזואליות (הבהוב מסך)</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="warningTime">התראת אזהרה (דקות לפני סיום):</label>
+                    <input type="number" id="warningTime" value="2" min="0" max="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="themeSelect">ערכת נושא:</label>
+                    <select id="themeSelect">
+                        <option value="light">בהיר (ברירת מחדל)</option>
+                        <option value="dark">כהה</option>
+                        <option value="ocean">אוקיינוס</option>
+                    </select>
+                </div>
+
+                <div style="padding: 15px; background: var(--bg-main); border-radius: 10px; margin-top: 20px;">
+                    <p style="color: var(--success); text-align: center; font-weight: bold;">✅ ההגדרות נשמרות אוטומטית</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📊 סטטיסטיקות</h2>
+                <button onclick="showStatistics()" class="btn-secondary">📈 הצג סטטיסטיקות מפורטות</button>
+                <button onclick="resetStatistics()" class="btn-danger" style="m
