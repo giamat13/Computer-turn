@@ -743,8 +743,14 @@
                     התור יקבע לפי ההגדרות של כל ילד (פעילות ובונוס). ניתן לערבב את הסדר לפני ההתחלה.
                 </p>
 
+                <div id="activeDevicesInfo" style="display: none; background: var(--bg-main); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="color: var(--primary); font-size: 1rem; margin-bottom: 10px;">📱 מכשירים פעילים כרגע:</h3>
+                    <div id="activeDevicesList"></div>
+                </div>
+
                 <button onclick="startQueue()" class="btn-success">🚀 התחל תור</button>
                 <button onclick="shuffleQueue()" class="btn-warning shuffle-btn">🔀 ערבב סדר</button>
+                <button onclick="updateActiveDevicesDisplay()" class="btn-secondary" style="margin-right: 10px;">🔄 רענן מכשירים</button>
             </div>
 
             <div class="timer-display" id="timerDisplay" style="display: none;">
@@ -902,6 +908,108 @@
         let totalSeconds = 0;
         let isPaused = false;
         let rules = [];
+        let activeSessions = {}; // Track active sessions per device
+        let currentDeviceId = localStorage.getItem('deviceId') || generateDeviceId();
+
+        // Generate unique device ID
+        function generateDeviceId() {
+            const id = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('deviceId', id);
+            return id;
+        }
+
+        // Multi-device session management
+        function saveActiveSession() {
+            if (queue.length === 0 || currentIndex >= queue.length) return;
+            
+            const sessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
+            sessions[currentDeviceId] = {
+                currentIndex,
+                currentSeconds,
+                totalSeconds,
+                isPaused,
+                queue,
+                deviceName: getDeviceName(),
+                lastUpdate: Date.now()
+            };
+            localStorage.setItem('activeSessions', JSON.stringify(sessions));
+        }
+
+        function loadActiveSessions() {
+            try {
+                const sessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
+                // Clean old sessions (older than 1 hour)
+                const now = Date.now();
+                Object.keys(sessions).forEach(deviceId => {
+                    if (now - sessions[deviceId].lastUpdate > 3600000) {
+                        delete sessions[deviceId];
+                    }
+                });
+                localStorage.setItem('activeSessions', JSON.stringify(sessions));
+                return sessions;
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function getDeviceName() {
+            const device = devices.find(d => d.id === parseInt(localStorage.getItem('selectedDeviceId')));
+            return device ? device.name : 'מכשיר ' + currentDeviceId.substr(-4);
+        }
+
+        function showActiveSessions() {
+            const sessions = loadActiveSessions();
+            const sessionCount = Object.keys(sessions).length;
+            
+            if (sessionCount > 1) {
+                const sessionInfo = Object.entries(sessions)
+                    .filter(([id]) => id !== currentDeviceId)
+                    .map(([id, session]) => {
+                        const child = session.queue[session.currentIndex];
+                        return `${session.deviceName}: ${child.name} (${formatTime(session.currentSeconds)}/${formatTime(session.totalSeconds)})`;
+                    })
+                    .join('\n');
+                
+                if (sessionInfo) {
+                    console.log('📱 מכשירים פעילים אחרים:\n' + sessionInfo);
+                }
+            }
+        }
+
+        function updateActiveDevicesDisplay() {
+            const sessions = loadActiveSessions();
+            const activeDevicesInfo = document.getElementById('activeDevicesInfo');
+            const activeDevicesList = document.getElementById('activeDevicesList');
+            
+            const otherSessions = Object.entries(sessions).filter(([id]) => id !== currentDeviceId);
+            
+            if (otherSessions.length > 0) {
+                activeDevicesInfo.style.display = 'block';
+                activeDevicesList.innerHTML = otherSessions.map(([id, session]) => {
+                    const child = session.queue[session.currentIndex] || {};
+                    const progress = session.totalSeconds > 0 
+                        ? Math.round((session.currentSeconds / session.totalSeconds) * 100) 
+                        : 0;
+                    
+                    return `
+                        <div class="list-item" style="margin-bottom: 5px;">
+                            <div>
+                                <strong>${session.deviceName}</strong>
+                                <span style="color: var(--text-secondary); margin-right: 10px;">
+                                    ${child.name || 'לא ידוע'} - ${formatTime(session.currentSeconds)}/${formatTime(session.totalSeconds)}
+                                    ${session.isPaused ? '⏸️ מושהה' : '▶️ פעיל'}
+                                </span>
+                            </div>
+                            <div style="width: 100px; background: var(--bg-main); height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${progress}%; height: 100%; background: var(--primary);"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                activeDevicesInfo.style.display = 'none';
+            }
+        }
 
         // Pre-defined rule templates
         const ruleTemplates = [
@@ -980,6 +1088,11 @@
                 
                 tab.classList.add('active');
                 document.getElementById(tab.dataset.tab).classList.add('active');
+                
+                // Update active devices display when switching to timer tab
+                if (tab.dataset.tab === 'timer') {
+                    updateActiveDevicesDisplay();
+                }
             });
         });
 
@@ -1446,7 +1559,11 @@
                     }
                 }
                 updateTimerDisplay();
+                saveActiveSession(); // Save session every second
             }, 1000);
+            
+            saveActiveSession();
+            showActiveSessions();
         }
 
         function pauseTimer() {
@@ -1505,45 +1622,72 @@
                     ? `⏱️ ${queue[currentIndex].name} נשאר ${Math.floor(overtime / 60)} דקות ו-${overtime % 60} שניות מעבר לזמן!`
                     : `✅ ${queue[currentIndex].name} יצא ${Math.floor(Math.abs(overtime) / 60)} דקות ו-${Math.abs(overtime) % 60} שניות לפני הזמן!`;
                 
-                // Create notification element
-                const notification = document.createElement('div');
-                notification.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: ${overtime > 0 ? 'var(--danger)' : 'var(--success)'};
-                    color: white;
-                    padding: 15px 30px;
-                    border-radius: 10px;
-                    font-weight: bold;
-                    z-index: 10000;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                    animation: slideDown 0.5s ease-out;
-                `;
-                notification.textContent = message;
-                document.body.appendChild(notification);
-                
-                setTimeout(() => {
-                    notification.style.animation = 'fadeOut 0.5s ease-out';
-                    setTimeout(() => notification.remove(), 500);
-                }, 3000);
+                showNotification(message, overtime > 0 ? 'danger' : 'success');
             }
 
             currentIndex++;
             
             if (currentIndex >= queue.length) {
-                alert('כל הילדים סיימו! 🎉');
-                document.getElementById('timerDisplay').style.display = 'none';
-                queue = [];
-                saveToCookies();
-                renderChildren();
+                // Clear active session for this device
+                const sessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
+                delete sessions[currentDeviceId];
+                localStorage.setItem('activeSessions', JSON.stringify(sessions));
+                
+                showCompletionDialog();
                 return;
             }
 
             loadCurrentChild();
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('pauseBtn').style.display = 'none';
+            saveActiveSession();
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--${type});
+                color: white;
+                padding: 15px 30px;
+                border-radius: 10px;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                animation: slideDown 0.5s ease-out;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'fadeOut 0.5s ease-out';
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        }
+
+        function showCompletionDialog() {
+            const sessions = loadActiveSessions();
+            const otherActiveSessions = Object.keys(sessions).filter(id => id !== currentDeviceId).length;
+            
+            let message = 'כל הילדים סיימו! 🎉\n\n';
+            
+            if (otherActiveSessions > 0) {
+                message += `יש עדיין ${otherActiveSessions} מכשיר${otherActiveSessions > 1 ? 'ים' : ''} פעיל${otherActiveSessions > 1 ? 'ים' : ''}.\n\n`;
+            }
+            
+            message += 'האם להתחיל תור חדש?';
+            
+            if (confirm(message)) {
+                startQueue();
+            } else {
+                document.getElementById('timerDisplay').style.display = 'none';
+                queue = [];
+                saveToCookies();
+                renderChildren();
+            }
         }
 
         function updateTimerDisplay() {
@@ -1612,24 +1756,24 @@
                 rules
             };
             
-            document.cookie = `turnSystem=${JSON.stringify(data)}; max-age=31536000; path=/`;
+            // Save to localStorage instead of cookies for better persistence
+            localStorage.setItem('turnSystem', JSON.stringify(data));
+            console.log('💾 נשמר אוטומטית ל-localStorage');
         }
 
         function loadFromCookies() {
-            const cookies = document.cookie.split(';');
-            const turnCookie = cookies.find(c => c.trim().startsWith('turnSystem='));
-            
-            if (turnCookie) {
-                try {
-                    const data = JSON.parse(decodeURIComponent(turnCookie.split('=')[1]));
-                    settings = data.settings || settings;
-                    categories = data.categories || categories;
-                    children = data.children || [];
-                    devices = data.devices || [];
-                    rules = data.rules || JSON.parse(JSON.stringify(ruleTemplates));
-                } catch (e) {
-                    console.error('Error loading cookies:', e);
+            try {
+                const data = localStorage.getItem('turnSystem');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    settings = parsed.settings || settings;
+                    categories = parsed.categories || categories;
+                    children = parsed.children || [];
+                    devices = parsed.devices || [];
+                    rules = parsed.rules || JSON.parse(JSON.stringify(ruleTemplates));
                 }
+            } catch (e) {
+                console.error('Error loading from localStorage:', e);
             }
             
             loadSettings();
@@ -1642,6 +1786,14 @@
         renderCategories();
         renderChildren();
         renderDevices();
+        
+        // Auto-refresh active devices display every 3 seconds when on timer tab
+        setInterval(() => {
+            const timerTab = document.getElementById('timer');
+            if (timerTab && timerTab.classList.contains('active')) {
+                updateActiveDevicesDisplay();
+            }
+        }, 3000);
     </script>
 </body>
 </html>
