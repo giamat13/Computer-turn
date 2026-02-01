@@ -21,6 +21,36 @@
             --shadow: rgba(107, 76, 230, 0.1);
         }
 
+        [data-theme="dark"] {
+            --primary: #8B6CE6;
+            --primary-dark: #7458D7;
+            --secondary: #FF8BB9;
+            --success: #6EEDC4;
+            --warning: #FFE93D;
+            --danger: #FF8B8B;
+            --bg-main: #1A202C;
+            --bg-card: #2D3748;
+            --text-primary: #E2E8F0;
+            --text-secondary: #A0AEC0;
+            --border: #4A5568;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="ocean"] {
+            --primary: #0891B2;
+            --primary-dark: #0E7490;
+            --secondary: #06B6D4;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --bg-main: #ECFEFF;
+            --bg-card: #FFFFFF;
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --border: #CBD5E1;
+            --shadow: rgba(8, 145, 178, 0.1);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -446,6 +476,11 @@
             to { opacity: 0; }
         }
 
+        @keyframes flash {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.3; }
+        }
+
         .close-modal {
             float: left;
             font-size: 2rem;
@@ -655,9 +690,44 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="soundAlerts">
+                        <label for="soundAlerts">התראות קוליות (צפצוף בסיום)</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="visualAlerts">
+                        <label for="visualAlerts">התראות ויזואליות (הבהוב מסך)</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="warningTime">התראת אזהרה (דקות לפני סיום):</label>
+                    <input type="number" id="warningTime" value="2" min="0" max="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="themeSelect">ערכת נושא:</label>
+                    <select id="themeSelect">
+                        <option value="light">בהיר (ברירת מחדל)</option>
+                        <option value="dark">כהה</option>
+                        <option value="ocean">אוקיינוס</option>
+                    </select>
+                </div>
+
                 <div style="padding: 15px; background: var(--bg-main); border-radius: 10px; margin-top: 20px;">
                     <p style="color: var(--success); text-align: center; font-weight: bold;">✅ ההגדרות נשמרות אוטומטית</p>
                 </div>
+            </div>
+
+            <div class="card">
+                <h2>📊 סטטיסטיקות</h2>
+                <button onclick="showStatistics()" class="btn-secondary">📈 הצג סטטיסטיקות מפורטות</button>
+                <button onclick="resetStatistics()" class="btn-danger" style="margin-right: 10px;">🔄 אפס סטטיסטיקות</button>
+                <button onclick="exportData()" class="btn-success" style="margin-right: 10px;">💾 ייצא נתונים</button>
             </div>
 
             <div class="card">
@@ -707,11 +777,6 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="childBonus">בונוס נוסף (דקות - יכול להיות שלילי):</label>
-                    <input type="number" id="childBonus" value="0" placeholder="0">
-                </div>
-
                 <button onclick="addChild()">➕ הוסף ילד</button>
             </div>
 
@@ -736,6 +801,16 @@
 
         <!-- Timer Tab -->
         <div class="tab-content" id="timer">
+            <div class="card">
+                <h2>הגדרת בונוסים</h2>
+                
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    הגדר בונוסים (או קיצוצים) לכל ילד לפני התחלת התור
+                </p>
+
+                <div id="bonusSettings"></div>
+            </div>
+
             <div class="card">
                 <h2>הפעלת תור</h2>
                 
@@ -880,11 +955,6 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="editChildBonus">בונוס נוסף (דקות - יכול להיות שלילי):</label>
-                <input type="number" id="editChildBonus" value="0" placeholder="0">
-            </div>
-
             <div style="margin-top: 20px; display: flex; gap: 10px;">
                 <button onclick="saveEditChild()" class="btn-success">💾 שמור שינויים</button>
                 <button onclick="closeEditChildModal()" class="btn-secondary">ביטול</button>
@@ -901,7 +971,11 @@
             allowReset: true,
             showProgress: true,
             showPercent: true,
-            countDown: true // ספירה לאחור כברירת מחדל
+            countDown: true, // ספירה לאחור כברירת מחדל
+            soundAlerts: true,
+            visualAlerts: true,
+            warningTime: 2,
+            theme: 'light'
         };
 
         let categories = ['שיעורי בית', 'תכנות', 'משחק', 'אחר'];
@@ -916,6 +990,8 @@
         let rules = [];
         let activeSessions = {}; // Track active sessions per device
         let currentDeviceId = localStorage.getItem('deviceId') || generateDeviceId();
+        let sessionBonuses = {}; // Temporary bonuses for current session
+        let warningShown = false; // Track if warning was shown
 
         // Generate unique device ID
         function generateDeviceId() {
@@ -1078,7 +1154,7 @@
 
         // Auto-save settings on change
         document.addEventListener('DOMContentLoaded', () => {
-            const autoSaveInputs = ['priorityMode', 'defaultTime', 'allowPause', 'allowReset', 'showProgress', 'showPercent', 'countDown'];
+            const autoSaveInputs = ['priorityMode', 'defaultTime', 'allowPause', 'allowReset', 'showProgress', 'showPercent', 'countDown', 'soundAlerts', 'visualAlerts', 'warningTime', 'themeSelect'];
             autoSaveInputs.forEach(id => {
                 const element = document.getElementById(id);
                 if (element) {
@@ -1100,9 +1176,10 @@
                 tab.classList.add('active');
                 document.getElementById(tab.dataset.tab).classList.add('active');
                 
-                // Update active devices display when switching to timer tab
+                // Update displays when switching tabs
                 if (tab.dataset.tab === 'timer') {
                     updateActiveDevicesDisplay();
+                    renderBonusSettings();
                 }
             });
         });
@@ -1117,11 +1194,28 @@
             settings.showPercent = document.getElementById('showPercent').checked;
             settings.countDown = document.getElementById('countDown').checked;
             
+            const soundAlerts = document.getElementById('soundAlerts');
+            const visualAlerts = document.getElementById('visualAlerts');
+            const warningTime = document.getElementById('warningTime');
+            const themeSelect = document.getElementById('themeSelect');
+            
+            if (soundAlerts) settings.soundAlerts = soundAlerts.checked;
+            if (visualAlerts) settings.visualAlerts = visualAlerts.checked;
+            if (warningTime) settings.warningTime = parseInt(warningTime.value) || 2;
+            if (themeSelect) {
+                settings.theme = themeSelect.value;
+                applyTheme(settings.theme);
+            }
+            
             saveToCookies();
             if (!silent) {
                 alert('ההגדרות נשמרו בהצלחה! ✅');
             }
             updateTimerControls();
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
         }
 
         function loadSettings() {
@@ -1132,6 +1226,18 @@
             document.getElementById('showProgress').checked = settings.showProgress;
             document.getElementById('showPercent').checked = settings.showPercent;
             document.getElementById('countDown').checked = settings.countDown;
+            
+            const soundAlerts = document.getElementById('soundAlerts');
+            const visualAlerts = document.getElementById('visualAlerts');
+            const warningTime = document.getElementById('warningTime');
+            const themeSelect = document.getElementById('themeSelect');
+            
+            if (soundAlerts) soundAlerts.checked = settings.soundAlerts !== false;
+            if (visualAlerts) visualAlerts.checked = settings.visualAlerts !== false;
+            if (warningTime) warningTime.value = settings.warningTime || 2;
+            if (themeSelect) themeSelect.value = settings.theme || 'light';
+            
+            applyTheme(settings.theme || 'light');
         }
 
         // Category functions
@@ -1325,23 +1431,21 @@
 
             const time = parseInt(document.getElementById('childTime').value) || settings.defaultTime;
             const activity = document.getElementById('childActivity').value;
-            const bonus = parseInt(document.getElementById('childBonus').value) || 0;
             
             children.push({
                 id: Date.now(),
                 name: name,
                 defaultTime: time,
                 activity: activity,
-                bonus: bonus,
                 totalUsage: 0
             });
 
             document.getElementById('childName').value = '';
             document.getElementById('childTime').value = '';
             document.getElementById('childActivity').value = '';
-            document.getElementById('childBonus').value = '0';
             
             renderChildren();
+            renderBonusSettings();
             saveToCookies();
         }
 
@@ -1349,8 +1453,123 @@
             if (confirm('האם למחוק את הילד?')) {
                 children = children.filter(c => c.id !== id);
                 renderChildren();
+                renderBonusSettings();
                 saveToCookies();
             }
+        }
+
+        // Bonus settings for timer
+        function renderBonusSettings() {
+            const container = document.getElementById('bonusSettings');
+            if (!container) return;
+
+            if (children.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">אין ילדים להצגה. הוסף ילדים בטאב "ניהול"</p>';
+                return;
+            }
+
+            container.innerHTML = children.map(child => `
+                <div class="list-item" style="margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <strong>${child.name}</strong>
+                        ${child.activity ? `<span class="category-badge category-${getCategoryClass(child.activity)}">${child.activity}</span>` : ''}
+                        <span style="color: var(--text-secondary); margin-right: 10px;">
+                            זמן בסיסי: ${child.defaultTime} דקות
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">בונוס:</label>
+                        <input type="number" 
+                               id="bonus-${child.id}" 
+                               value="${sessionBonuses[child.id] || 0}" 
+                               style="width: 80px; padding: 8px; border: 2px solid var(--border); border-radius: 5px;"
+                               onchange="updateBonus(${child.id}, this.value)">
+                        <span style="font-size: 0.9rem; color: var(--text-secondary);">דקות</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateBonus(childId, value) {
+            sessionBonuses[childId] = parseInt(value) || 0;
+            saveTimerState();
+        }
+
+        // Statistics functions
+        function showStatistics() {
+            let stats = '<div style="max-height: 500px; overflow-y: auto;">';
+            stats += '<h3 style="color: var(--primary);">📊 סטטיסטיקות שימוש</h3>';
+            
+            if (children.length === 0) {
+                alert('אין נתונים להצגה');
+                return;
+            }
+            
+            const totalUsage = children.reduce((sum, child) => sum + child.totalUsage, 0);
+            
+            stats += `<p><strong>סך הכל שעות שימוש:</strong> ${formatTime(totalUsage * 60)}</p>`;
+            stats += '<hr style="border-color: var(--border); margin: 15px 0;">';
+            
+            children.forEach(child => {
+                const percentage = totalUsage > 0 ? ((child.totalUsage / totalUsage) * 100).toFixed(1) : 0;
+                stats += `
+                    <div style="margin-bottom: 15px; padding: 10px; background: var(--bg-main); border-radius: 8px;">
+                        <strong>${child.name}</strong><br>
+                        <span style="color: var(--text-secondary);">
+                            שימוש: ${formatTime(child.totalUsage * 60)} (${percentage}%)<br>
+                            פעילות: ${child.activity || 'לא הוגדר'}
+                        </span>
+                        <div style="width: 100%; background: var(--border); height: 8px; border-radius: 4px; margin-top: 5px; overflow: hidden;">
+                            <div style="width: ${percentage}%; height: 100%; background: var(--primary);"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            stats += '</div>';
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close-modal" onclick="this.parentElement.parentElement.remove()">×</span>
+                    ${stats}
+                    <button onclick="this.parentElement.parentElement.remove()" class="btn-secondary" style="margin-top: 15px;">סגור</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function resetStatistics() {
+            if (!confirm('האם לאפס את כל הסטטיסטיקות? פעולה זו אינה הפיכה!')) return;
+            
+            children.forEach(child => child.totalUsage = 0);
+            saveToCookies();
+            renderChildren();
+            alert('הסטטיסטיקות אופסו! ✅');
+        }
+
+        function exportData() {
+            const exportData = {
+                settings,
+                categories,
+                children,
+                devices,
+                rules,
+                exportDate: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `turn-system-backup-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            alert('הנתונים יוצאו בהצלחה! 💾');
         }
 
         function editChild(id) {
@@ -1361,7 +1580,6 @@
             document.getElementById('editChildName').value = child.name;
             document.getElementById('editChildTime').value = child.defaultTime;
             document.getElementById('editChildActivity').value = child.activity || '';
-            document.getElementById('editChildBonus').value = child.bonus || 0;
             
             document.getElementById('editChildModal').classList.add('active');
         }
@@ -1374,9 +1592,9 @@
             child.name = document.getElementById('editChildName').value.trim();
             child.defaultTime = parseInt(document.getElementById('editChildTime').value) || settings.defaultTime;
             child.activity = document.getElementById('editChildActivity').value;
-            child.bonus = parseInt(document.getElementById('editChildBonus').value) || 0;
 
             renderChildren();
+            renderBonusSettings();
             saveToCookies();
             closeEditChildModal();
             alert('הילד עודכן בהצלחה! ✅');
@@ -1400,7 +1618,6 @@
                         ${child.activity ? `<span class="category-badge category-${getCategoryClass(child.activity)}">${child.activity}</span>` : ''}
                         <span style="color: var(--text-secondary); margin-right: 10px;">
                             ${child.defaultTime} דקות
-                            ${child.bonus > 0 ? `+ ${child.bonus} בונוס` : ''}
                             | שימוש כולל: ${formatTime(child.totalUsage)}
                         </span>
                     </div>
@@ -1462,11 +1679,12 @@
             }
 
             queue = [...children].map(child => {
+                const bonus = sessionBonuses[child.id] || 0;
                 return {
                     ...child,
-                    timeAllotted: child.defaultTime + (child.bonus || 0),
+                    timeAllotted: child.defaultTime + bonus,
                     activity: child.activity || 'לא הוגדר',
-                    hasBonus: child.bonus > 0
+                    hasBonus: bonus !== 0
                 };
             });
 
@@ -1486,6 +1704,7 @@
             document.getElementById('timerDisplay').style.display = 'block';
             renderQueue();
             loadCurrentChild();
+            saveTimerState();
         }
 
         function shuffleQueue() {
@@ -1544,12 +1763,14 @@
             const child = queue[currentIndex];
             totalSeconds = child.timeAllotted * 60;
             currentSeconds = settings.countDown ? totalSeconds : 0;
+            warningShown = false; // Reset warning for new child
 
             document.getElementById('currentChildName').textContent = 
                 `${child.name} - ${child.activity}`;
             
             updateTimerDisplay();
             renderQueue();
+            saveTimerState();
         }
 
         function startTimer() {
@@ -1572,10 +1793,12 @@
                     }
                 }
                 updateTimerDisplay();
-                saveActiveSession(); // Save session every second
+                saveActiveSession();
+                saveTimerState(); // Save every second
             }, 1000);
             
             saveActiveSession();
+            saveTimerState();
             showActiveSessions();
         }
 
@@ -1588,6 +1811,8 @@
 
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('pauseBtn').style.display = 'none';
+            
+            saveTimerState();
         }
 
         function resetTimer() {
@@ -1604,6 +1829,7 @@
             document.getElementById('pauseBtn').style.display = 'none';
 
             updateTimerDisplay();
+            saveTimerState();
         }
 
         function nextChild() {
@@ -1694,10 +1920,12 @@
             message += 'האם להתחיל תור חדש?';
             
             if (confirm(message)) {
+                clearTimerState();
                 startQueue();
             } else {
                 document.getElementById('timerDisplay').style.display = 'none';
                 queue = [];
+                clearTimerState();
                 saveToCookies();
                 renderChildren();
             }
@@ -1709,6 +1937,22 @@
             
             document.getElementById('timeDisplay').textContent = 
                 `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            // Check for warning time
+            const timeRemaining = settings.countDown ? currentSeconds : totalSeconds - currentSeconds;
+            const warningSeconds = (settings.warningTime || 2) * 60;
+            
+            if (timeRemaining <= warningSeconds && timeRemaining > warningSeconds - 5 && !warningShown) {
+                warningShown = true;
+                showNotification(`⏰ נותרו ${settings.warningTime} דקות!`, 'warning');
+                if (settings.soundAlerts) playBeep();
+                if (settings.visualAlerts) flashScreen();
+            }
+            
+            // Reset warning flag when time increases again
+            if (timeRemaining > warningSeconds) {
+                warningShown = false;
+            }
 
             // Progress bar
             const progress = (currentSeconds / totalSeconds) * 100;
@@ -1734,6 +1978,43 @@
 
             document.getElementById('elapsedTime').textContent = formatTime(elapsed);
             document.getElementById('remainingTime').textContent = formatTime(remaining);
+        }
+
+        function playBeep() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function flashScreen() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--warning);
+                opacity: 0.3;
+                z-index: 9999;
+                pointer-events: none;
+                animation: flash 0.5s ease-in-out 3;
+            `;
+            document.body.appendChild(overlay);
+            
+            setTimeout(() => overlay.remove(), 1500);
         }
 
         function updateTimerControls() {
@@ -1774,6 +2055,53 @@
             console.log('💾 נשמר אוטומטית ל-localStorage');
         }
 
+        function saveTimerState() {
+            const timerState = {
+                queue,
+                currentIndex,
+                currentSeconds,
+                totalSeconds,
+                isPaused,
+                sessionBonuses
+            };
+            localStorage.setItem('timerState_' + currentDeviceId, JSON.stringify(timerState));
+            console.log('⏱️ מצב הטיימר נשמר');
+        }
+
+        function loadTimerState() {
+            try {
+                const stateData = localStorage.getItem('timerState_' + currentDeviceId);
+                if (stateData) {
+                    const state = JSON.parse(stateData);
+                    queue = state.queue || [];
+                    currentIndex = state.currentIndex || 0;
+                    currentSeconds = state.currentSeconds || 0;
+                    totalSeconds = state.totalSeconds || 0;
+                    isPaused = state.isPaused || false;
+                    sessionBonuses = state.sessionBonuses || {};
+                    
+                    if (queue.length > 0 && currentIndex < queue.length) {
+                        document.getElementById('timerDisplay').style.display = 'block';
+                        renderQueue();
+                        updateTimerDisplay();
+                        
+                        if (!isPaused) {
+                            document.getElementById('startBtn').style.display = 'none';
+                            document.getElementById('pauseBtn').style.display = 'inline-block';
+                        }
+                    }
+                    
+                    renderBonusSettings();
+                }
+            } catch (e) {
+                console.error('Error loading timer state:', e);
+            }
+        }
+
+        function clearTimerState() {
+            localStorage.removeItem('timerState_' + currentDeviceId);
+        }
+
         function loadFromCookies() {
             try {
                 const data = localStorage.getItem('turnSystem');
@@ -1802,6 +2130,8 @@
             renderCategories();
             renderChildren();
             renderDevices();
+            renderBonusSettings();
+            loadTimerState(); // Load saved timer state
             
             // Auto-refresh active devices display every 3 seconds when on timer tab
             setInterval(() => {
