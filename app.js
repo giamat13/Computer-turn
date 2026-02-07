@@ -615,15 +615,38 @@ const app = {
     },
 
     updateTimerDisplay() {
-        const minutes = Math.floor(Math.abs(this.currentSeconds) / 60);
-        const seconds = Math.abs(this.currentSeconds) % 60;
-        
-        // Check if we're in overtime
+        // Calculate if we're in overtime
         const isOvertime = this.settings.countDown ? this.currentSeconds < 0 : this.currentSeconds > this.totalSeconds;
+        
+        // Calculate overtime value
+        let overtime = 0;
+        if (isOvertime) {
+            overtime = this.settings.countDown ? -this.currentSeconds : this.currentSeconds - this.totalSeconds;
+        }
+        
+        // Display time
+        let displaySeconds = isOvertime ? overtime : Math.abs(this.currentSeconds);
+        const minutes = Math.floor(displaySeconds / 60);
+        const seconds = displaySeconds % 60;
         const prefix = isOvertime ? '-' : '';
         
         document.getElementById('timeDisplay').textContent = 
             `${prefix}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        
+        // Update child name
+        const child = this.queue[this.currentIndex];
+        document.getElementById('currentChildName').textContent = child.name;
+        
+        // Show/hide overtime card
+        const overtimeCard = document.getElementById('overtimeCard');
+        const overtimeValue = document.getElementById('overtimeValue');
+        if (isOvertime) {
+            overtimeCard.style.display = 'block';
+            overtimeValue.textContent = this.formatTime(overtime);
+            console.log(`⏱️ OVERTIME: ${overtime} seconds`);
+        } else {
+            overtimeCard.style.display = 'none';
+        }
         
         // Change color to red if overtime
         const timerDisplay = document.getElementById('timerDisplay');
@@ -675,8 +698,11 @@ const app = {
             }
             
             if (this.settings.showPercent) {
-                document.getElementById('percentDisplay').textContent = 
-                    Math.round(displayProgress) + '%';
+                if (isOvertime) {
+                    document.getElementById('percentDisplay').textContent = `Overtime +${Math.floor((overtime / this.totalSeconds) * 100)}%`;
+                } else {
+                    document.getElementById('percentDisplay').textContent = Math.round(displayProgress) + '%';
+                }
             } else {
                 document.getElementById('percentDisplay').textContent = '';
             }
@@ -689,8 +715,8 @@ const app = {
         
         if (isOvertime) {
             // In overtime
-            elapsed = this.totalSeconds + Math.abs(timeRemaining);
-            remaining = timeRemaining; // Negative value
+            elapsed = this.totalSeconds + overtime;
+            remaining = -overtime; // Negative value
         } else {
             elapsed = this.settings.countDown ? this.totalSeconds - this.currentSeconds : this.currentSeconds;
             remaining = this.settings.countDown ? this.currentSeconds : this.totalSeconds - this.currentSeconds;
@@ -699,12 +725,17 @@ const app = {
         document.getElementById('elapsedTime').textContent = this.formatTime(elapsed);
         
         // Format remaining time with minus if negative
+        const remainingTimeElement = document.getElementById('remainingTime');
+        const remainingLabelElement = remainingTimeElement.parentElement.querySelector('.label');
+        
         if (remaining < 0) {
-            document.getElementById('remainingTime').textContent = '-' + this.formatTime(Math.abs(remaining));
-            document.getElementById('remainingTime').style.color = '#FF6B6B';
+            remainingTimeElement.textContent = '-' + this.formatTime(Math.abs(remaining));
+            remainingTimeElement.style.color = '#FF6B6B';
+            remainingLabelElement.textContent = 'חריגה';
         } else {
-            document.getElementById('remainingTime').textContent = this.formatTime(remaining);
-            document.getElementById('remainingTime').style.color = 'var(--primary)';
+            remainingTimeElement.textContent = this.formatTime(remaining);
+            remainingTimeElement.style.color = 'var(--primary)';
+            remainingLabelElement.textContent = 'זמן נותר';
         }
     },
 
