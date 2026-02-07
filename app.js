@@ -24,6 +24,7 @@ const app = {
     rules: [],
     currentDeviceId: localStorage.getItem('deviceId') || this.generateDeviceId(),
     warningShown: false,
+    alertPlayed: false,
 
     // Rule templates
     ruleTemplates: [
@@ -382,6 +383,7 @@ const app = {
         this.totalSeconds = child.timeAllotted * 60;
         this.currentSeconds = this.settings.countDown ? this.totalSeconds : 0;
         this.warningShown = false;
+        this.alertPlayed = false;
 
         document.getElementById('currentChildName').textContent = child.name;
         
@@ -400,14 +402,10 @@ const app = {
         this.timerInterval = setInterval(() => {
             if (this.settings.countDown) {
                 this.currentSeconds--;
-                if (this.currentSeconds <= 0) {
-                    this.finishCurrentTurn();
-                }
+                // Don't auto-finish, keep counting into negative
             } else {
                 this.currentSeconds++;
-                if (this.currentSeconds >= this.totalSeconds) {
-                    this.finishCurrentTurn();
-                }
+                // Don't auto-finish, keep counting beyond total
             }
             this.updateTimerDisplay();
             this.saveActiveSession();
@@ -426,14 +424,10 @@ const app = {
         this.timerInterval = setInterval(() => {
             if (this.settings.countDown) {
                 this.currentSeconds--;
-                if (this.currentSeconds <= 0) {
-                    this.finishCurrentTurn();
-                }
+                // Don't auto-finish, keep counting into negative
             } else {
                 this.currentSeconds++;
-                if (this.currentSeconds >= this.totalSeconds) {
-                    this.finishCurrentTurn();
-                }
+                // Don't auto-finish, keep counting beyond total
             }
             this.updateTimerDisplay();
             this.saveActiveSession();
@@ -483,9 +477,6 @@ const app = {
     finishCurrentTurn() {
         clearInterval(this.timerInterval);
         this.timerInterval = null;
-
-        // Play strong completion alert
-        this.playCompletionAlert();
 
         // Calculate overtime
         const overtime = this.settings.countDown ? -this.currentSeconds : this.currentSeconds - this.totalSeconds;
@@ -625,33 +616,64 @@ const app = {
     },
 
     updateTimerDisplay() {
-        const minutes = Math.floor(this.currentSeconds / 60);
-        const seconds = this.currentSeconds % 60;
+        const minutes = Math.floor(Math.abs(this.currentSeconds) / 60);
+        const seconds = Math.abs(this.currentSeconds) % 60;
+        
+        // Check if we're in overtime
+        const isOvertime = this.settings.countDown ? this.currentSeconds < 0 : this.currentSeconds > this.totalSeconds;
+        const prefix = isOvertime ? '-' : '';
         
         document.getElementById('timeDisplay').textContent = 
-            `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            `${prefix}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        
+        // Change color to red if overtime
+        const timerDisplay = document.getElementById('timerDisplay');
+        if (isOvertime) {
+            timerDisplay.style.background = 'linear-gradient(135deg, #FF6B6B, #FF0000)';
+        } else {
+            timerDisplay.style.background = 'linear-gradient(135deg, var(--primary), var(--secondary))';
+        }
 
         // Check for warning time
         const timeRemaining = this.settings.countDown ? this.currentSeconds : this.totalSeconds - this.currentSeconds;
         const warningSeconds = (this.settings.warningTime || 2) * 60;
         
-        if (timeRemaining <= warningSeconds && timeRemaining > warningSeconds - 5 && !this.warningShown) {
+        if (timeRemaining <= warningSeconds && timeRemaining > 0 && timeRemaining > warningSeconds - 5 && !this.warningShown) {
             this.warningShown = true;
             this.showNotification(`⏰ נותרו ${this.settings.warningTime} דקות!`, 'warning');
             this.playBeep();
         }
         
-        if (timeRemaining > warningSeconds) {
+        // Play strong alert when time reaches 0
+        if (timeRemaining <= 0 && timeRemaining > -5 && !this.alertPlayed) {
+            this.alertPlayed = true;
+            this.playCompletionAlert();
+        }
+        
+        // Reset alert flag when back to positive
+        if (timeRemaining > 0) {
             this.warningShown = false;
+            this.alertPlayed = false;
         }
 
         // Progress bar
-        const progress = (this.currentSeconds / this.totalSeconds) * 100;
+        let progress = (this.currentSeconds / this.totalSeconds) * 100;
+        if (isOvertime) {
+            progress = 100; // Keep at 100% when overtime
+        }
         const displayProgress = this.settings.countDown ? 100 - progress : progress;
         
         if (this.settings.showProgress) {
             document.getElementById('progressContainer').style.display = 'block';
-            document.getElementById('progressBar').style.width = displayProgress + '%';
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = displayProgress + '%';
+            
+            // Change progress bar to red in overtime
+            if (isOvertime) {
+                progressBar.style.background = 'linear-gradient(90deg, #FF6B6B, #FF0000)';
+            } else {
+                progressBar.style.background = 'linear-gradient(90deg, var(--success), var(--warning))';
+            }
             
             if (this.settings.showPercent) {
                 document.getElementById('percentDisplay').textContent = 
@@ -664,11 +686,27 @@ const app = {
         }
 
         // Stats
-        const elapsed = this.settings.countDown ? this.totalSeconds - this.currentSeconds : this.currentSeconds;
-        const remaining = this.settings.countDown ? this.currentSeconds : this.totalSeconds - this.currentSeconds;
+        let elapsed, remaining;
+        
+        if (isOvertime) {
+            // In overtime
+            elapsed = this.totalSeconds + Math.abs(timeRemaining);
+            remaining = timeRemaining; // Negative value
+        } else {
+            elapsed = this.settings.countDown ? this.totalSeconds - this.currentSeconds : this.currentSeconds;
+            remaining = this.settings.countDown ? this.currentSeconds : this.totalSeconds - this.currentSeconds;
+        }
 
         document.getElementById('elapsedTime').textContent = this.formatTime(elapsed);
-        document.getElementById('remainingTime').textContent = this.formatTime(remaining);
+        
+        // Format remaining time with minus if negative
+        if (remaining < 0) {
+            document.getElementById('remainingTime').textContent = '-' + this.formatTime(Math.abs(remaining));
+            document.getElementById('remainingTime').style.color = '#FF6B6B';
+        } else {
+            document.getElementById('remainingTime').textContent = this.formatTime(remaining);
+            document.getElementById('remainingTime').style.color = 'var(--primary)';
+        }
     },
 
     playBeep() {
