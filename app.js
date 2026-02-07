@@ -89,11 +89,6 @@ const app = {
                 this.updateActiveDevicesDisplay();
             }
         }, 3000);
-
-        // Auto-resume timer if it was running
-        if (this.queue.length > 0 && this.currentIndex < this.queue.length && !this.isPaused) {
-            this.resumeTimer();
-        }
     },
 
     // Generate unique device ID
@@ -336,6 +331,9 @@ const app = {
         this.renderQueue();
         this.loadCurrentChild();
         this.saveTimerState();
+        
+        // Auto-start the timer
+        this.startTimer();
     },
 
     shuffleQueue() {
@@ -512,9 +510,10 @@ const app = {
         }
 
         this.loadCurrentChild();
-        document.getElementById('startBtn').style.display = 'inline-block';
-        document.getElementById('pauseBtn').style.display = 'none';
         this.saveActiveSession();
+        
+        // Auto-start timer for next child
+        this.startTimer();
     },
 
     playCompletionAlert() {
@@ -1044,7 +1043,8 @@ const app = {
             currentIndex: this.currentIndex,
             currentSeconds: this.currentSeconds,
             totalSeconds: this.totalSeconds,
-            isPaused: this.isPaused
+            isPaused: this.isPaused,
+            isRunning: this.timerInterval !== null
         };
         localStorage.setItem('timerState_' + this.currentDeviceId, JSON.stringify(timerState));
         console.log('⏱️ מצב הטיימר נשמר');
@@ -1060,15 +1060,27 @@ const app = {
                 this.currentSeconds = state.currentSeconds || 0;
                 this.totalSeconds = state.totalSeconds || 0;
                 this.isPaused = state.isPaused || false;
+                const wasRunning = state.isRunning || false;
                 
                 if (this.queue.length > 0 && this.currentIndex < this.queue.length) {
                     document.getElementById('timerDisplay').style.display = 'block';
+                    
+                    // Update the current child name
+                    const child = this.queue[this.currentIndex];
+                    document.getElementById('currentChildName').textContent = child.name;
+                    
                     this.renderQueue();
                     this.updateTimerDisplay();
                     
-                    if (!this.isPaused) {
-                        document.getElementById('startBtn').style.display = 'none';
-                        document.getElementById('pauseBtn').style.display = 'inline-block';
+                    // Auto-resume if timer was running
+                    if (wasRunning && !this.isPaused) {
+                        this.resumeTimer();
+                    } else if (this.isPaused) {
+                        document.getElementById('startBtn').style.display = 'inline-block';
+                        document.getElementById('pauseBtn').style.display = 'none';
+                    } else {
+                        document.getElementById('startBtn').style.display = 'inline-block';
+                        document.getElementById('pauseBtn').style.display = 'none';
                     }
                 }
             }
